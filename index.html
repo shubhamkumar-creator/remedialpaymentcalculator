@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CMS, QAID Remedial Payment Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b2330;--mu:#667085;--bd:#dfe3ea;--ac:#1d4e89;--acx:#e8f0fa;--ok:#157347;--bad:#b42318;--warn:#b54708;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161c;--card:#1b222b;--tx:#e8ecf2;--mu:#98a2b3;--bd:#2f3946;--ac:#7fb0ec;--acx:#1f2d40;--ok:#4ade80;--bad:#f87171;--warn:#fbbf24}}
+:root[data-theme="dark"]{--bg:#12161c;--card:#1b222b;--tx:#e8ecf2;--mu:#98a2b3;--bd:#2f3946;--ac:#7fb0ec;--acx:#1f2d40;--ok:#4ade80;--bad:#f87171;--warn:#fbbf24}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1200px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 2px}h2{font-size:15px;margin:0 0 10px}.sub{color:var(--mu);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+label.f{display:block;font-weight:600;margin-bottom:4px}
+input[type=text],input[type=number],input[type=month],select{width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:7px;background:var(--bg);color:var(--tx);font:inherit}
+input[type=file]{width:100%}
+button{background:var(--ac);color:#fff;border:0;border-radius:7px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+:root[data-theme="dark"] button,:root:not([data-theme="light"]) button{color:#0b1220}
+button.sec{background:var(--acx);color:var(--ac);border:1px solid var(--bd)}button.sm{padding:3px 9px;font-size:12px}
+.st{font-size:12.5px;color:var(--mu);margin-top:6px}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.blk{border:1px solid var(--bd);border-radius:9px;padding:12px;margin-bottom:10px}
+.sheets{max-height:210px;overflow:auto;border:1px solid var(--bd);border-radius:7px;padding:4px 8px;margin-top:6px}
+.sheets label{display:flex;gap:6px;align-items:center;padding:2px 0;cursor:pointer}
+.tag{font-size:11px;padding:1px 6px;border-radius:9px;background:var(--acx);color:var(--ac)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:0 0 auto}
+.tw{overflow-x:auto;border:1px solid var(--bd);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{padding:5px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+th{background:var(--acx);position:sticky;top:0}td.n,th.n{text-align:right}tr.x td{color:var(--bad)}tr.t td{font-weight:700;background:var(--acx)}
+.m{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}.m div{display:flex;flex-direction:column}.m small{color:var(--mu)}
+details summary{cursor:pointer;font-weight:600}.big{font-size:22px;font-weight:700}
+</style></head><body><main>
+<h1>CMS, QAID Remedial Payment Calculator</h1>
+<p class="sub">Upload both attendance files, choose teacher(s) and class sheet(s), and get a fully traceable calculation.</p>
+
+<div class="card"><h2>1 · Upload attendance files</h2>
+<div class="grid">
+<div><label class="f">Teachers' attendance (.xls / .xlsx / .csv)</label><input type="file" id="fT" accept=".xls,.xlsx,.xlsm,.csv,.html,.htm"><div class="st" id="sT">No file loaded.</div></div>
+<div><label class="f">Students' attendance workbook (one sheet per class)</label><input type="file" id="fS" accept=".xls,.xlsx,.xlsm,.csv"><div class="st" id="sS">No file loaded.</div></div>
+<div><label class="f">Month of the attendance</label><input type="month" id="mon"><div class="st">Used when student sheets only show day numbers (10, 11, 12…). Auto-detected from the teachers' file.</div></div>
+</div>
+<details style="margin-top:10px" id="mapD"><summary>Teachers' file column mapping (auto-detected — change only if wrong)</summary><div class="grid" id="map" style="margin-top:8px"></div></details>
+</div>
+
+<div class="card"><details><summary>Rules &amp; rates (defaults from your instructions — editable)</summary>
+<div class="tw" style="margin:10px 0"><table id="rt"></table></div>
+<div class="grid">
+<div><label class="f">Hours paid per class-day</label><input type="number" id="hrs" value="1" step="0.25"><div class="st">Your reference statement pays 1 hour × rate per class-day (e.g. 9 days × 265 = 2385), even though ICSE/ISC need 75 min OT.</div></div>
+<div><label class="f">100% pay if attendance ≥ (%)</label><input type="number" id="t1" value="80"></div>
+<div><label class="f">80% pay if attendance ≥ (%)</label><input type="number" id="t2" value="60"><div class="st">Below this → 0%.</div></div>
+<div><label class="f">Same-day OT rule</label><select id="cum"><option value="0">Each class checked against OT separately (matches your reference)</option><option value="1">Add up required OT for all classes on that date</option></select></div>
+</div></details></div>
+
+<div class="card"><h2>2 · Teachers &amp; classes to calculate</h2>
+<div id="blocks"></div>
+<div class="row"><button class="sec" id="add">+ Add another teacher</button><button id="go">Calculate payment</button></div></div>
+
+<div id="out"></div>
+<footer style="text-align:center;font-size:11px;color:var(--mu);padding:14px 0 6px">Developed by: shubham.kumar@cmseducation.org</footer>
+</main>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const LV=['Primary','Junior','ICSE','ISC'],RATES={Primary:[170,180],Junior:[190,210],ICSE:[265,290],ISC:[300,330]},REQ={Primary:60,Junior:60,ICSE:75,ISC:75};
+const LVN={Primary:'Primary (I–V)',Junior:'Junior (VI–VIII)',ICSE:'ICSE (IX–X)',ISC:'ISC (XI–XII)'};
+const H={date:/^(att(endance)?\s*)?date$/i,code:/(e\.?\s*code|emp\w*\s*(code|id|no)|employee\s*(code|id)|^code$)/i,name:/(full\s*name|employee\s*name|teacher\s*name|^name$)/i,desig:/designation/i,inT:/^(a\.?\s*|actual\s*)?in\s*(time|punch)$/i,outT:/^(a\.?\s*|actual\s*)?out\s*(time|punch)$/i,ot:/(^ot\b|ot\s*hours?|over\s*-?time)/i,st:/(att.*abb|^status$|^attendance$)/i};
+const HL={date:'Date',code:'Employee code',name:'Teacher name',desig:'Designation',inT:'In time',outT:'Out time',ot:'OT hours',st:'Attendance status (P / WO…)'};
+const S={tRaw:null,sRaw:null,hdr:null,T:{},sheets:[],blocks:[],id:0,res:null};
+// rates table
+$('#rt').innerHTML='<tr><th>Level</th><th>Required OT (min)</th><th>Mon–Sat rate ₹/hr</th><th>Sunday / WO rate ₹/hr</th></tr>'+LV.map(l=>`<tr><td>${LVN[l]}</td><td><input type="number" id="q_${l}" value="${REQ[l]}"></td><td><input type="number" id="a_${l}" value="${RATES[l][0]}"></td><td><input type="number" id="b_${l}" value="${RATES[l][1]}"></td></tr>`).join('');
+const cfg=()=>({req:Object.fromEntries(LV.map(l=>[l,+$('#q_'+l).value])),rate:Object.fromEntries(LV.map(l=>[l,[+$('#a_'+l).value,+$('#b_'+l).value]])),hrs:+$('#hrs').value,t1:+$('#t1').value,t2:+$('#t2').value,cum:$('#cum').value==='1'});
+// helpers
+const dk=(y,m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+function pDate(v){if(v==null||v==='')return null;
+ if(v instanceof Date&&!isNaN(v)){const t=new Date(v.getTime()+12*36e5);return dk(t.getFullYear(),t.getMonth()+1,t.getDate())}
+ if(typeof v==='number'&&v>20000){const o=XLSX.SSF.parse_date_code(v);return o?dk(o.y,o.m,o.d):null}
+ const s=String(v).trim();let m=s.match(/^(\d{1,2})[-\/ .]([A-Za-z]{3,})[-\/ .,]*(\d{2,4})/);
+ if(m){const mi=MN.findIndex(x=>x.toLowerCase()===m[2].slice(0,3).toLowerCase());if(mi>=0)return dk(+m[3]<100?2000+ +m[3]:+m[3],mi+1,+m[1])}
+ m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);if(m)return dk(+m[1],+m[2],+m[3]);
+ m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);if(m)return dk(+m[3]<100?2000+ +m[3]:+m[3],+m[2],+m[1]);return null}
+const pMin=v=>{if(v==null)return null;if(v instanceof Date){return v.getHours()*60+v.getMinutes()}
+ if(typeof v==='number')return isNaN(v)?null:v<1?Math.round(v*1440):Math.round(v*60);
+ const s=String(v).trim();if(!s||/^nan$/i.test(s))return null;const m=s.match(/^(\d+):(\d{2})/);if(m)return +m[1]*60+ +m[2];const n=parseFloat(s);return isNaN(n)?null:Math.round(n*60)};
+const fm=m=>m==null?'—':Math.floor(m/60)+':'+String(m%60).padStart(2,'0');
+const tm=v=>{if(v==null||v==='')return '—';if(typeof v==='number'&&v<1)return fm(Math.round(v*1440));if(v instanceof Date)return fm(v.getHours()*60+v.getMinutes());return String(v)};
+const fd=k=>{const[y,m,d]=k.split('-');return `${d}-${MN[m-1]}-${y}`};
+const wd=k=>{const[y,m,d]=k.split('-');return new Date(y,m-1,d).getDay()};
+const rs=n=>'₹'+(+n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const lvl=n=>{const m=String(n).trim().match(/^(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b/i);if(!m)return null;const r=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'].indexOf(m[1].toUpperCase())+1;return r<=5?'Primary':r<=8?'Junior':r<=10?'ICSE':'ISC'};
+async function readAny(f){const buf=await f.arrayBuffer(),head=new TextDecoder().decode(buf.slice(0,3000)).toLowerCase();
+ if(head.includes('<table')){const doc=new DOMParser().parseFromString(new TextDecoder().decode(buf),'text/html'),o={};
+  doc.querySelectorAll('table').forEach((t,i)=>o['Table '+(i+1)]=[...t.rows].map(r=>[...r.cells].map(c=>c.textContent.replace(/\u00a0/g,' ').trim())));return o}
+ const wb=XLSX.read(buf,{type:'array',cellDates:true}),o={};wb.SheetNames.forEach(n=>o[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null}));return o}
+// teachers
+function detectHdr(){let best=null;for(const[sn,rows]of Object.entries(S.tRaw)){for(let r=0;r<Math.min(rows.length,40);r++){const map={};let c=0;(rows[r]||[]).forEach((v,i)=>{const s=String(v??'').trim();for(const k in H)if(map[k]==null&&s&&H[k].test(s)){map[k]=i;c++;break}});
+ if(c>=4&&(!best||c>best.c))best={sn,r,map,c,cols:(rows[r]||[]).map(v=>String(v??'').trim())}}}S.hdr=best;
+ $('#map').innerHTML=best?Object.keys(H).map(k=>`<div><label class="f">${HL[k]}</label><select data-k="${k}"><option value="">— none —</option>${best.cols.map((c,i)=>`<option value="${i}" ${best.map[k]===i?'selected':''}>${esc(c||'col '+(i+1))}</option>`).join('')}</select></div>`).join(''):'';
+ document.querySelectorAll('#map select').forEach(s=>s.onchange=()=>{S.hdr.map[s.dataset.k]=s.value===''?null:+s.value;buildT()})}
+function buildT(){const h=S.hdr,rows=S.tRaw[h.sn],M=h.map,T={},mc={};let n=0;
+ for(let r=h.r+1;r<rows.length;r++){const w=rows[r];if(!w)continue;const g=k=>M[k]==null?null:w[M[k]];const code=String(g('code')??'').trim(),name=String(g('name')??'').trim(),d=pDate(g('date'));if(!d||(!code&&!name))continue;
+  const key=code||name.toUpperCase(),t=T[key]||(T[key]={code,name,desig:String(g('desig')??'').trim(),days:{}});const ot=pMin(g('ot')),rec={ot,st:String(g('st')??'').trim(),inT:tm(g('inT')),outT:tm(g('outT'))};
+  if(!t.days[d]||(ot||0)>(t.days[d].ot||0))t.days[d]=rec;n++;const ym=d.slice(0,7);mc[ym]=(mc[ym]||0)+1}
+ S.T=T;const ym=Object.entries(mc).sort((a,b)=>b[1]-a[1])[0];if(ym&&!$('#mon').value)$('#mon').value=ym[0];
+ const ds=Object.values(T).flatMap(t=>Object.keys(t.days)).sort();
+ $('#sT').innerHTML=n?`<span class="ok">✔ ${n} rows · ${Object.keys(T).length} employees · ${fd(ds[0])} to ${fd(ds[ds.length-1])}</span>`:'<span class="bad">No rows read — check the column mapping below.</span>';
+ if(n)$('#mapD').open=false;else $('#mapD').open=true;refreshBlocks()}
+// students
+function buildS(){if(!S.sRaw)return;const mv=$('#mon').value,[my,mm]=mv?mv.split('-').map(Number):[0,0];S.sheets=[];
+ for(const[name,rows]of Object.entries(S.sRaw)){let hr=-1,cols=[];
+  for(let r=0;r<Math.min(rows.length,15);r++){const c=[];(rows[r]||[]).forEach((v,i)=>{if(i<1)return;if(typeof v==='number'&&Number.isInteger(v)&&v>=1&&v<=31&&mm)c.push([i,dk(my,mm,v)]);else{const d=(v instanceof Date||(typeof v==='string'&&/\d/.test(v)&&/[-\/]/.test(v))||(typeof v==='number'&&v>20000))?pDate(v):null;if(d)c.push([i,d])}});if(c.length>cols.length){cols=c;hr=r}}
+  const o={name,cls:name.split('_')[0].replace(/Group\s*\d+/i,'').replace(/[()]/g,'').replace(/\s+/g,' ').trim(),subj:(name.split('_')[1]||'').replace(/[().]/g,'').trim(),level:lvl(name),dates:{}};
+  if(hr<0){o.note='No date columns found';S.sheets.push(o);continue}
+  const hdrRow=rows[hr]||[];let nc=hdrRow.findIndex((v,i)=>/name/i.test(String(v||'')));if(nc<0)nc=1;const sum={};
+  for(let r=hr+1;r<rows.length;r++){const w=rows[r]||[],lab=String(w[0]??'')+' '+String(w[1]??'');
+   if(/total|present|absent|summary|working/i.test(lab)){const k=/total/i.test(lab)?'tot':/present/i.test(lab)&&!/%/.test(lab)?'pres':null;if(k)cols.forEach(([i,d])=>{if(typeof w[i]==='number')(sum[d]=sum[d]||{})[k]=w[i]});continue}
+   if(!String(w[nc]??'').trim())continue;cols.forEach(([i,d])=>{const v=String(w[i]??'').trim();if(!v)return;const e=o.dates[d]=o.dates[d]||{tot:0,pres:0,src:'students'};e.tot++;if(/^p/i.test(v))e.pres++})}
+  for(const d in sum)if(!o.dates[d]&&sum[d].tot>0)o.dates[d]={tot:sum[d].tot,pres:sum[d].pres||0,src:'summary rows'};
+  if(!Object.keys(o.dates).length)o.note='No attendance entered';S.sheets.push(o)}
+ const ok=S.sheets.filter(s=>Object.keys(s.dates).length).length;
+ $('#sS').innerHTML=`<span class="ok">✔ ${S.sheets.length} class sheets · ${ok} with attendance entries</span>`+(S.sheets.length-ok?`<br><span class="warn">${S.sheets.length-ok} sheet(s) empty / unreadable (shown greyed in the class list)</span>`:'');refreshBlocks()}
+// blocks
+function findT(q){q=q.trim();if(!q)return[];const all=Object.values(S.T),nz=x=>x.toUpperCase().replace(/[^A-Z0-9]/g,'');
+ if(/^([a-z]+[-\s_]?)?\d+$/i.test(q)){const L=/[a-z]/i.test(q),n=nz(q),v=parseInt(q.replace(/\D/g,''),10);return all.filter(t=>L?nz(t.code)===n:parseInt(t.code.replace(/\D/g,''),10)===v)}
+ const k=q.toLowerCase().split(/\s+/);return all.filter(t=>k.every(x=>t.name.toLowerCase().includes(x)))}
+function addBlock(){const b={id:++S.id,q:'',sel:null,sheets:new Set(),lv:{},ex:new Set()};S.blocks.push(b);const d=document.createElement('div');d.className='blk';d.id='b'+b.id;
+ d.innerHTML=`<div class="row" style="justify-content:space-between"><b>Teacher ${S.blocks.length}</b><button class="sec sm rm">Remove</button></div>
+ <label class="f" style="margin-top:6px">Teacher name or employee code</label><input type="text" class="q" placeholder="e.g. Rajesh Chauhan · CMSS-00865 · 00865">
+ <div class="mt st"></div><label class="f" style="margin-top:10px">Class sheet(s) to include</label><input type="text" class="sf" placeholder="Filter sheets (e.g. IX P, Math, XI S)…">
+ <div class="row" style="margin-top:6px"><button class="sec sm sa">Select shown</button><button class="sec sm sc">Clear</button><span class="st sn"></span></div><div class="sheets"></div><label class="f" style="margin-top:10px">Dates to include</label><div class="row"><button class="sec sm da">All dates</button><button class="sec sm dc">No dates</button><span class="st dn"></span></div><div class="dates" style="margin-top:6px"></div>`;
+ $('#blocks').appendChild(d);const q=s=>d.querySelector(s);
+ q('.q').oninput=e=>{b.q=e.target.value;b.sel=null;drawM(b)};q('.sf').oninput=()=>drawS(b);
+ q('.sa').onclick=()=>{shown(b).forEach(i=>b.sheets.add(i));drawS(b)};q('.sc').onclick=()=>{b.sheets.clear();drawS(b)};
+ q('.da').onclick=()=>{b.ex.clear();drawD(b)};q('.dc').onclick=()=>{avail(b).forEach(k=>b.ex.add(k));drawD(b)};q('.rm').onclick=()=>{S.blocks=S.blocks.filter(x=>x!==b);d.remove()};drawM(b);drawS(b)}
+const shown=b=>{const f=(document.querySelector('#b'+b.id+' .sf')?.value||'').toLowerCase().trim();return S.sheets.map((s,i)=>[s,i]).filter(([s])=>!f||s.name.toLowerCase().includes(f)).map(([,i])=>i)};
+function drawM(b){const el=document.querySelector('#b'+b.id+' .mt'),m=findT(b.q);
+ if(!b.q.trim()){el.innerHTML='';return}if(!Object.keys(S.T).length){el.innerHTML='<span class="warn">Upload the teachers\' file first.</span>';return}
+ if(!m.length){el.innerHTML='<span class="bad">No teacher found for this name / code.</span>';return}
+ if(m.length===1)b.sel=m[0].code||m[0].name;
+ el.innerHTML=m.length===1?`<span class="ok">✔ ${esc(m[0].name)} · ${esc(m[0].code)} · ${esc(m[0].desig)}</span>`:'<span class="warn">Several matches — pick one:</span>'+m.slice(0,12).map(t=>`<label style="display:block"><input type="radio" name="r${b.id}" value="${esc(t.code||t.name)}" ${b.sel===(t.code||t.name)?'checked':''}> ${esc(t.name)} · ${esc(t.code)} · ${esc(t.desig)}</label>`).join('');
+ el.querySelectorAll('input').forEach(i=>i.onchange=()=>b.sel=i.value)}
+function drawS(b){const d=document.querySelector('#b'+b.id),el=d.querySelector('.sheets'),ix=shown(b);
+ el.innerHTML=!S.sheets.length?'<span class="st">Upload the students\' workbook to see class sheets.</span>':ix.map(i=>{const s=S.sheets[i],has=Object.keys(s.dates).length;return `<label style="${has?'':'opacity:.5'}"><input type="checkbox" data-i="${i}" ${b.sheets.has(i)?'checked':''}> ${esc(s.name.trim())} <span class="tag">${s.level||'level?'}</span> <span class="st">${has?Object.keys(s.dates).length+' date(s)':esc(s.note)}</span>${s.level?'':`<select data-l="${i}"><option value="">choose level</option>${LV.map(l=>`<option ${b.lv[i]===l?'selected':''}>${l}</option>`).join('')}</select>`}</label>`}).join('');
+ el.querySelectorAll('input').forEach(c=>c.onchange=()=>{c.checked?b.sheets.add(+c.dataset.i):b.sheets.delete(+c.dataset.i);d.querySelector('.sn').textContent=b.sheets.size+' selected';drawD(b)});
+ el.querySelectorAll('select').forEach(c=>c.onchange=()=>b.lv[c.dataset.l]=c.value);d.querySelector('.sn').textContent=b.sheets.size+' selected';drawD(b)}
+const avail=b=>[...new Set([...b.sheets].flatMap(i=>Object.keys(S.sheets[i]?.dates||{})))].sort();
+function drawD(b){const d=document.querySelector('#b'+b.id),el=d.querySelector('.dates'),ds=avail(b);
+ el.innerHTML=!ds.length?'<span class="st">Select class sheets to see their dates.</span>':ds.map(k=>`<label style="display:inline-flex;gap:4px;align-items:center;margin:2px 12px 2px 0"><input type="checkbox" data-d="${k}" ${b.ex.has(k)?'':'checked'}> ${fd(k)} <span class="st">${DN[wd(k)]}${wd(k)===0?' (Sunday)':''}</span></label>`).join('');
+ const cnt=()=>d.querySelector('.dn').textContent=ds.length?ds.filter(k=>!b.ex.has(k)).length+' of '+ds.length+' dates selected':'';
+ el.querySelectorAll('input').forEach(c=>c.onchange=()=>{c.checked?b.ex.delete(c.dataset.d):b.ex.add(c.dataset.d);cnt()});cnt()}
+function refreshBlocks(){S.blocks.forEach(b=>{drawM(b);drawS(b)})}
+// calculate
+function calc(){const C=cfg(),out=[];
+ for(const b of S.blocks){const t=Object.values(S.T).find(x=>(x.code||x.name)===b.sel);if(!t){out.push({err:'Teacher not identified for "'+esc(b.q||'(blank)')+'" — enter a name / code and pick a match.'});continue}
+  const items=[];[...b.sheets].forEach(i=>{const s=S.sheets[i];const L=s.level||b.lv[i];Object.keys(s.dates).sort().forEach(d=>{if(!b.ex.has(d))items.push({s,L,d,e:s.dates[d]})})});
+  items.sort((a,z)=>a.d<z.d?-1:a.d>z.d?1:0);const need={};items.forEach(x=>{if(x.L)need[x.d]=(need[x.d]||0)+C.req[x.L]});
+  const rows=items.map(x=>{const r={d:x.d,s:x.s,L:x.L,tot:x.e.tot,pres:x.e.pres,src:x.e.src},rec=t.days[x.d],dow=wd(x.d);
+   r.pct=r.tot?r.pres/r.tot*100:0;r.pp=r.pct>=C.t1?100:r.pct>=C.t2?80:0;r.sun=dow===0||(rec&&/^wo$/i.test(rec.st));r.rec=rec;
+   if(!x.L){r.amt=0;r.note='Class level unknown — choose it in the class list';return r}
+   r.rate=C.rate[x.L][r.sun?1:0];r.req=C.cum?need[x.d]:C.req[x.L];r.ot=rec?rec.ot:null;r.otOK=r.ot!=null&&r.ot>=r.req;
+   r.amt=r.otOK?Math.round(r.rate*C.hrs*r.pp)/100:0;
+   r.note=!rec?'No attendance record for this date':r.ot==null?'No OT recorded':!r.otOK?`OT ${fm(r.ot)} is less than required ${fm(r.req)}`:r.pp===0?`Student attendance ${r.pct.toFixed(1)}% is below ${C.t2}%`:'';return r});
+  out.push({t,rows,C})}return out}
+function render(res){let g=0,h='';
+ res.forEach(R=>{if(R.err){h+=`<div class="card bad">${R.err}</div>`;return}const{t,rows,C}=R,tot=rows.reduce((a,r)=>a+r.amt,0);g+=tot;const paid=rows.filter(r=>r.amt>0).length;
+  const grp={};rows.forEach(r=>{const k=r.s.cls+'|'+(r.rate??'?')+'|'+(r.amt>0?r.pp:0);const o=grp[k]=grp[k]||{cls:r.s.cls,sub:new Set(),rate:r.rate,eff:r.amt>0?r.rate*C.hrs*r.pp/100:0,d:0,a:0};o.sub.add(r.s.subj);o.d++;o.a+=r.amt});
+  h+=`<div class="card"><h2>${esc(t.name)} <span class="tag">${esc(t.code)}</span> <span class="tag">${esc(t.desig)}</span></h2>
+  <div class="m" style="margin-bottom:12px"><div><small>Class-days found</small><b>${rows.length}</b></div><div><small>Paid</small><b>${paid}</b></div><div><small>Not paid</small><b>${rows.length-paid}</b></div><div><small>Total payable</small><span class="big">${rs(tot)}</span></div></div>
+  ${rows.length?`<h2>Statement view</h2><div class="tw" style="margin-bottom:12px"><table><tr><th>Class</th><th>Subject(s)</th><th class="n">No. of days</th><th class="n">Rate paid / day</th><th class="n">Amount</th></tr>${Object.values(grp).map(o=>`<tr class="${o.a?'':'x'}"><td>${esc(o.cls)}</td><td>${esc([...o.sub].join(', '))}</td><td class="n">${o.d}</td><td class="n">${rs(o.eff)}</td><td class="n">${rs(o.a)}</td></tr>`).join('')}<tr class="t"><td colspan="2">Total</td><td class="n">${rows.length}</td><td></td><td class="n">${rs(tot)}</td></tr></table></div>
+  <h2>Detailed calculation (every input used)</h2><div class="tw"><table><tr><th>#</th><th>Date</th><th>Day</th><th>Day type</th><th>Class sheet</th><th>Level</th><th>Status</th><th>In</th><th>Out</th><th class="n">OT</th><th class="n">OT req.</th><th>OT ok?</th><th class="n">Students</th><th class="n">Present</th><th class="n">Attend. %</th><th class="n">Slab pay</th><th class="n">Rate ₹/hr</th><th>Calculation</th><th class="n">Amount</th><th>Remark</th></tr>
+  ${rows.map((r,i)=>`<tr class="${r.amt?'':'x'}"><td>${i+1}</td><td>${fd(r.d)}</td><td>${DN[wd(r.d)]}</td><td>${r.sun?'Sunday / WO':'Weekday'}</td><td>${esc(r.s.name.trim())}</td><td>${r.L||'?'}</td><td>${esc(r.rec?.st||'—')}</td><td>${esc(r.rec?.inT||'—')}</td><td>${esc(r.rec?.outT||'—')}</td><td class="n">${fm(r.ot)}</td><td class="n">${r.req!=null?fm(r.req):'—'}</td><td>${r.otOK?'✔':'✘'}</td><td class="n">${r.tot}</td><td class="n">${r.pres}</td><td class="n">${r.pct.toFixed(2)}%</td><td class="n">${r.pp}%</td><td class="n">${r.rate??'—'}</td><td>${r.rate!=null?`${r.rate} × ${C.hrs}h × ${r.otOK?r.pp:0}% = ${r.amt.toFixed(2)}`:'—'}</td><td class="n">${rs(r.amt)}</td><td>${esc(r.note)}</td></tr>`).join('')}
+  <tr class="t"><td colspan="18">Total for ${esc(t.name)}</td><td class="n">${rs(tot)}</td><td></td></tr></table></div>`:'<p class="warn">No attendance entries found in the selected class sheets.</p>'}</div>`});
+ h=`<div class="card"><div class="row" style="justify-content:space-between"><div><small class="st">Grand total (${res.filter(r=>!r.err).length} teacher(s))</small><div class="big">${rs(g)}</div></div><button class="sec" id="cp">Copy detailed table (paste into Excel)</button></div><div class="st">Rule: payment = rate × hours × slab %, only if the teacher's OT on that date ≥ required OT. Sunday / "WO" days use the Sunday rate.</div></div>`+h;
+ $('#out').innerHTML=h;$('#out').scrollIntoView({behavior:'smooth'});
+ $('#cp').onclick=()=>{const L=[['Teacher','Code','Date','Day','Day type','Class sheet','Level','Status','In','Out','OT','OT required','OT ok','Students','Present','Attend %','Slab pay %','Rate/hr','Amount','Remark']];
+  res.forEach(R=>R.rows&&R.rows.forEach(r=>L.push([R.t.name,R.t.code,fd(r.d),DN[wd(r.d)],r.sun?'Sunday/WO':'Weekday',r.s.name.trim(),r.L||'',r.rec?.st||'',r.rec?.inT||'',r.rec?.outT||'',fm(r.ot),r.req!=null?fm(r.req):'',r.otOK?'Y':'N',r.tot,r.pres,r.pct.toFixed(2),r.pp,r.rate??'',r.amt.toFixed(2),r.note])));
+  const tx=L.map(x=>x.join('\t')).join('\n');const fb=()=>{const a=document.createElement('textarea');a.value=tx;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove()};
+  (navigator.clipboard?navigator.clipboard.writeText(tx).catch(fb):Promise.resolve(fb())).then(()=>$('#cp').textContent='Copied ✔')}}
+// events
+$('#fT').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#sT').textContent='Reading…';try{S.tRaw=await readAny(f);detectHdr();if(!S.hdr){$('#sT').innerHTML='<span class="bad">Could not find a header row (need date, employee code, name, OT…).</span>';return}buildT();buildS()}catch(x){$('#sT').innerHTML='<span class="bad">Could not read file: '+esc(x.message)+'</span>'}};
+$('#fS').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#sS').textContent='Reading…';try{S.sRaw=await readAny(f);buildS()}catch(x){$('#sS').innerHTML='<span class="bad">Could not read file: '+esc(x.message)+'</span>'}};
+$('#mon').onchange=buildS;$('#add').onclick=addBlock;
+$('#go').onclick=()=>{if(!S.blocks.length)return;if(!Object.keys(S.T).length||!S.sheets.length){$('#out').innerHTML='<div class="card bad">Please upload both files first.</div>';return}render(calc())};
+addBlock();
+</script></body></html>
