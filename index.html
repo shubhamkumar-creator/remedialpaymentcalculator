@@ -36,9 +36,9 @@ details summary{cursor:pointer;font-weight:600}.big{font-size:22px;font-weight:7
 
 <div class="card"><h2>1 · Upload attendance files</h2>
 <div class="grid">
-<div><label class="f">Teachers' attendance (.xls / .xlsx / .csv)</label><input type="file" id="fT" accept=".xls,.xlsx,.xlsm,.csv,.html,.htm"><div class="st" id="sT">No file loaded.</div></div>
-<div><label class="f">Students' attendance workbook (one sheet per class)</label><input type="file" id="fS" accept=".xls,.xlsx,.xlsm,.csv"><div class="st" id="sS">No file loaded.</div></div>
-<div><label class="f">Month of the attendance</label><input type="month" id="mon"><div class="st">Used when student sheets only show day numbers (10, 11, 12…). Auto-detected from the teachers' file.</div></div>
+<div><label class="f">Teachers' attendance (.xls / .xlsx / .csv) — select several months' files together if needed</label><input type="file" id="fT" multiple accept=".xls,.xlsx,.xlsm,.csv,.html,.htm"><div class="st" id="sT">No file loaded.</div></div>
+<div><label class="f">Remedial class data — the form export (one row per class-day) or a workbook with one sheet per class</label><input type="file" id="fS" accept=".xls,.xlsx,.xlsm,.csv"><div class="st" id="sS">No file loaded.</div></div>
+<div><label class="f">Month of the attendance</label><input type="month" id="mon"><div class="st">Only needed for sheet-per-class workbooks that show day numbers (10, 11, 12…). Not used for the form export.</div></div>
 </div>
 <details style="margin-top:10px" id="mapD"><summary>Teachers' file column mapping (auto-detected — change only if wrong)</summary><div class="grid" id="map" style="margin-top:8px"></div></details>
 </div>
@@ -49,15 +49,23 @@ details summary{cursor:pointer;font-weight:600}.big{font-size:22px;font-weight:7
 <div><label class="f">Hours paid per class-day</label><input type="number" id="hrs" value="1" step="0.25"><div class="st">Your reference statement pays 1 hour × rate per class-day (e.g. 9 days × 265 = 2385), even though ICSE/ISC need 75 min OT.</div></div>
 <div><label class="f">100% pay if attendance ≥ (%)</label><input type="number" id="t1" value="80"></div>
 <div><label class="f">80% pay if attendance ≥ (%)</label><input type="number" id="t2" value="60"><div class="st">Below this → 0%.</div></div>
-<div><label class="f">Same-day OT rule</label><select id="cum"><option value="0">Each class checked against OT separately (matches your reference)</option><option value="1">Add up required OT for all classes on that date</option></select></div>
+<div><label class="f">Same-day OT rule</label><select id="cum"><option value="1">Add up required OT for all classes taken on that date</option><option value="0">Check each class against OT separately</option></select></div>
 </div></details></div>
 
-<div class="card"><h2>2 · Teachers &amp; classes to calculate</h2>
+<div class="card" id="flc" style="display:none"><h2>2 · Choose what to calculate</h2><div class="st" id="fmsg" style="margin:0 0 10px"></div>
+<details id="mtc" open style="margin-bottom:12px"><summary>Teacher matching: form → attendance file (check the ⚠ rows before calculating)</summary><div class="tw" style="margin-top:8px"><table id="mt"></table></div></details>
+<div class="grid">
+<div><label class="f">Month(s)</label><div id="fm" class="sheets" style="max-height:none"></div></div>
+<div><label class="f">Class(es)</label><div class="row"><button class="sec sm" id="ca">All</button><button class="sec sm" id="cn">None</button></div><div id="fc" class="sheets"></div></div>
+<div><label class="f">Teacher(s) — type a name or code</label><input type="text" id="tq" placeholder="e.g. Sonali · CMSS-04770 · 04770 · IN-278"><div id="tch" style="margin-top:6px"></div><div class="row" style="margin-top:4px"><button class="sec sm" id="tl">List all teachers</button><button class="sec sm" id="tn">Clear selection</button></div><div id="ft" class="sheets"></div></div>
+<div><label class="f">Dates</label><div class="row"><button class="sec sm" id="da2">All dates</button><button class="sec sm" id="dn2">No dates</button></div><div id="fdt" class="sheets"></div></div>
+</div><div class="row" style="margin-top:12px"><button id="go2">Calculate payment</button></div></div>
+<div class="card" id="blkc"><h2>2 · Teachers &amp; classes to calculate</h2>
 <div id="blocks"></div>
 <div class="row"><button class="sec" id="add">+ Add another teacher</button><button id="go">Calculate payment</button></div></div>
 
 <div id="out"></div>
-<footer style="text-align:center;font-size:11px;color:var(--mu);padding:14px 0 6px"> Facing an issue? Please contact: shubham.kumar@cmseducation.org </footer>
+<footer style="text-align:center;font-size:11px;color:var(--mu);padding:14px 0 6px">shubham.kumar@cmseducation.org</footer>
 </main>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -78,7 +86,7 @@ function pDate(v){if(v==null||v==='')return null;
  const s=String(v).trim();let m=s.match(/^(\d{1,2})[-\/ .]([A-Za-z]{3,})[-\/ .,]*(\d{2,4})/);
  if(m){const mi=MN.findIndex(x=>x.toLowerCase()===m[2].slice(0,3).toLowerCase());if(mi>=0)return dk(+m[3]<100?2000+ +m[3]:+m[3],mi+1,+m[1])}
  m=s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);if(m)return dk(+m[1],+m[2],+m[3]);
- m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);if(m)return dk(+m[3]<100?2000+ +m[3]:+m[3],+m[2],+m[1]);return null}
+ m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);if(m){let dd=+m[1],mo=+m[2];if(mo>12)[dd,mo]=[mo,dd];return dk(+m[3]<100?2000+ +m[3]:+m[3],mo,dd)}return null}
 const pMin=v=>{if(v==null)return null;if(v instanceof Date){return v.getHours()*60+v.getMinutes()}
  if(typeof v==='number')return isNaN(v)?null:v<1?Math.round(v*1440):Math.round(v*60);
  const s=String(v).trim();if(!s||/^nan$/i.test(s))return null;const m=s.match(/^(\d+):(\d{2})/);if(m)return +m[1]*60+ +m[2];const n=parseFloat(s);return isNaN(n)?null:Math.round(n*60)};
@@ -87,26 +95,28 @@ const tm=v=>{if(v==null||v==='')return '—';if(typeof v==='number'&&v<1)return 
 const fd=k=>{const[y,m,d]=k.split('-');return `${d}-${MN[m-1]}-${y}`};
 const wd=k=>{const[y,m,d]=k.split('-');return new Date(y,m-1,d).getDay()};
 const rs=n=>'₹'+(+n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-const lvl=n=>{const m=String(n).trim().match(/^(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b/i);if(!m)return null;const r=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'].indexOf(m[1].toUpperCase())+1;return r<=5?'Primary':r<=8?'Junior':r<=10?'ICSE':'ISC'};
+const OR=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+const lvl=n=>{const t=String(n).trim();let r;const m=t.match(/^(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b/i);if(m)r=OR.indexOf(m[1].toUpperCase())+1;else{const d=t.match(/^(?:class\s*)?(\d{1,2})\b/i);if(!d)return null;r=+d[1]}return r<1||r>12?null:r<=5?'Primary':r<=8?'Junior':r<=10?'ICSE':'ISC'};
 async function readAny(f){const buf=await f.arrayBuffer(),head=new TextDecoder().decode(buf.slice(0,3000)).toLowerCase();
  if(head.includes('<table')){const doc=new DOMParser().parseFromString(new TextDecoder().decode(buf),'text/html'),o={};
   doc.querySelectorAll('table').forEach((t,i)=>o['Table '+(i+1)]=[...t.rows].map(r=>[...r.cells].map(c=>c.textContent.replace(/\u00a0/g,' ').trim())));return o}
- const wb=XLSX.read(buf,{type:'array',cellDates:true}),o={};wb.SheetNames.forEach(n=>o[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null}));return o}
+ const wb=XLSX.read(buf,{type:'array'}),o={};wb.SheetNames.forEach(n=>o[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null}));return o}
 // teachers
-function detectHdr(){let best=null;for(const[sn,rows]of Object.entries(S.tRaw)){for(let r=0;r<Math.min(rows.length,40);r++){const map={};let c=0;(rows[r]||[]).forEach((v,i)=>{const s=String(v??'').trim();for(const k in H)if(map[k]==null&&s&&H[k].test(s)){map[k]=i;c++;break}});
- if(c>=4&&(!best||c>best.c))best={sn,r,map,c,cols:(rows[r]||[]).map(v=>String(v??'').trim())}}}S.hdr=best;
- $('#map').innerHTML=best?Object.keys(H).map(k=>`<div><label class="f">${HL[k]}</label><select data-k="${k}"><option value="">— none —</option>${best.cols.map((c,i)=>`<option value="${i}" ${best.map[k]===i?'selected':''}>${esc(c||'col '+(i+1))}</option>`).join('')}</select></div>`).join(''):'';
- document.querySelectorAll('#map select').forEach(s=>s.onchange=()=>{S.hdr.map[s.dataset.k]=s.value===''?null:+s.value;buildT()})}
-function buildT(){const h=S.hdr,rows=S.tRaw[h.sn],M=h.map,T={},mc={};let n=0;
- for(let r=h.r+1;r<rows.length;r++){const w=rows[r];if(!w)continue;const g=k=>M[k]==null?null:w[M[k]];const code=String(g('code')??'').trim(),name=String(g('name')??'').trim(),d=pDate(g('date'));if(!d||(!code&&!name))continue;
-  const key=code||name.toUpperCase(),t=T[key]||(T[key]={code,name,desig:String(g('desig')??'').trim(),days:{}});const ot=pMin(g('ot')),rec={ot,st:String(g('st')??'').trim(),inT:tm(g('inT')),outT:tm(g('outT'))};
-  if(!t.days[d]||(ot||0)>(t.days[d].ot||0))t.days[d]=rec;n++;const ym=d.slice(0,7);mc[ym]=(mc[ym]||0)+1}
+S.tF=[];S.ov={};S.ovT={};S.man={};S.all=false;S.F=null;S.G={};S.fl={mon:new Set(),te:new Set(),cl:new Set(),ex:new Set()};
+function hdrOf(raw){let best=null;for(const[sn,rows]of Object.entries(raw)){for(let r=0;r<Math.min(rows.length,40);r++){const map={};let c=0;(rows[r]||[]).forEach((v,i)=>{const s=String(v??'').trim();for(const k in H)if(map[k]==null&&s&&H[k].test(s)){map[k]=i;c++;break}});if(c>=4&&(!best||c>best.c))best={sn,r,map,c,cols:(rows[r]||[]).map(v=>String(v??'').trim())}}}return best}
+function showMap(){const h=S.tF[0]?.hdr;$('#map').innerHTML=h?Object.keys(H).map(k=>`<div><label class="f">${HL[k]}</label><select data-k="${k}"><option value="">— none —</option>${h.cols.map((c,i)=>`<option value="${esc(c)}" ${h.map[k]===i?'selected':''}>${esc(c||'col '+(i+1))}</option>`).join('')}</select></div>`).join(''):'';
+ document.querySelectorAll('#map select').forEach(s=>s.onchange=()=>{S.ov[s.dataset.k]=s.value;buildT()})}
+function buildT(){const T={},mc={};let n=0;
+ S.tF.forEach(f=>{const h=f.hdr,rows=f.raw[h.sn],M={...h.map};for(const k in S.ov){const ix=h.cols.indexOf(S.ov[k]);M[k]=ix<0||S.ov[k]===''?null:ix}
+  for(let r=h.r+1;r<rows.length;r++){const w=rows[r];if(!w)continue;const g=k=>M[k]==null?null:w[M[k]];const code=String(g('code')??'').trim(),name=String(g('name')??'').trim(),d=pDate(g('date'));if(!d||(!code&&!name))continue;
+   const key=code||name.toUpperCase(),t=T[key]||(T[key]={code,name,desig:String(g('desig')??'').trim(),days:{}});const ot=pMin(g('ot')),rec={ot,st:String(g('st')??'').trim(),inT:tm(g('inT')),outT:tm(g('outT'))};
+   if(!t.days[d]||(ot||0)>(t.days[d].ot||0))t.days[d]=rec;n++;const ym=d.slice(0,7);mc[ym]=(mc[ym]||0)+1}});
  S.T=T;const ym=Object.entries(mc).sort((a,b)=>b[1]-a[1])[0];if(ym&&!$('#mon').value)$('#mon').value=ym[0];
  const ds=Object.values(T).flatMap(t=>Object.keys(t.days)).sort();
- $('#sT').innerHTML=n?`<span class="ok">✔ ${n} rows · ${Object.keys(T).length} employees · ${fd(ds[0])} to ${fd(ds[ds.length-1])}</span>`:'<span class="bad">No rows read — check the column mapping below.</span>';
- if(n)$('#mapD').open=false;else $('#mapD').open=true;refreshBlocks()}
+ $('#sT').innerHTML=n?`<span class="ok">✔ ${S.tF.length} file(s) · ${n} rows · ${Object.keys(T).length} employees · ${fd(ds[0])} to ${fd(ds[ds.length-1])}</span>`:'<span class="bad">No rows read — check the column mapping below.</span>';
+ $('#mapD').open=!n;refreshBlocks();afterData()}
 // students
-function buildS(){if(!S.sRaw)return;const mv=$('#mon').value,[my,mm]=mv?mv.split('-').map(Number):[0,0];S.sheets=[];
+function buildS(){if(!S.sRaw||S.F)return;const mv=$('#mon').value,[my,mm]=mv?mv.split('-').map(Number):[0,0];S.sheets=[];
  for(const[name,rows]of Object.entries(S.sRaw)){let hr=-1,cols=[];
   for(let r=0;r<Math.min(rows.length,15);r++){const c=[];(rows[r]||[]).forEach((v,i)=>{if(i<1)return;if(typeof v==='number'&&Number.isInteger(v)&&v>=1&&v<=31&&mm)c.push([i,dk(my,mm,v)]);else{const d=(v instanceof Date||(typeof v==='string'&&/\d/.test(v)&&/[-\/]/.test(v))||(typeof v==='number'&&v>20000))?pDate(v):null;if(d)c.push([i,d])}});if(c.length>cols.length){cols=c;hr=r}}
   const o={name,cls:name.split('_')[0].replace(/Group\s*\d+/i,'').replace(/[()]/g,'').replace(/\s+/g,' ').trim(),subj:(name.split('_')[1]||'').replace(/[().]/g,'').trim(),level:lvl(name),dates:{}};
@@ -161,25 +171,88 @@ function calc(){const C=cfg(),out=[];
    r.amt=r.otOK?Math.round(r.rate*C.hrs*r.pp)/100:0;
    r.note=!rec?'No attendance record for this date':r.ot==null?'No OT recorded':!r.otOK?`OT ${fm(r.ot)} is less than required ${fm(r.req)}`:r.pp===0?`Student attendance ${r.pct.toFixed(1)}% is below ${C.t2}%`:'';return r});
   out.push({t,rows,C})}return out}
-function render(res){let g=0,h='';
+function render(res,ns){let g=0,h='';const na=res.reduce((a,R)=>a+(R.rows||[]).filter(r=>/^No attendance data/.test(r.note)).length,0);
  res.forEach(R=>{if(R.err){h+=`<div class="card bad">${R.err}</div>`;return}const{t,rows,C}=R,tot=rows.reduce((a,r)=>a+r.amt,0);g+=tot;const paid=rows.filter(r=>r.amt>0).length;
   const grp={};rows.forEach(r=>{const k=r.s.cls+'|'+(r.rate??'?')+'|'+(r.amt>0?r.pp:0);const o=grp[k]=grp[k]||{cls:r.s.cls,sub:new Set(),rate:r.rate,eff:r.amt>0?r.rate*C.hrs*r.pp/100:0,d:0,a:0};o.sub.add(r.s.subj);o.d++;o.a+=r.amt});
   h+=`<div class="card"><h2>${esc(t.name)} <span class="tag">${esc(t.code)}</span> <span class="tag">${esc(t.desig)}</span></h2>
   <div class="m" style="margin-bottom:12px"><div><small>Class-days found</small><b>${rows.length}</b></div><div><small>Paid</small><b>${paid}</b></div><div><small>Not paid</small><b>${rows.length-paid}</b></div><div><small>Total payable</small><span class="big">${rs(tot)}</span></div></div>
   ${rows.length?`<h2>Statement view</h2><div class="tw" style="margin-bottom:12px"><table><tr><th>Class</th><th>Subject(s)</th><th class="n">No. of days</th><th class="n">Rate paid / day</th><th class="n">Amount</th></tr>${Object.values(grp).map(o=>`<tr class="${o.a?'':'x'}"><td>${esc(o.cls)}</td><td>${esc([...o.sub].join(', '))}</td><td class="n">${o.d}</td><td class="n">${rs(o.eff)}</td><td class="n">${rs(o.a)}</td></tr>`).join('')}<tr class="t"><td colspan="2">Total</td><td class="n">${rows.length}</td><td></td><td class="n">${rs(tot)}</td></tr></table></div>
   <h2>Detailed calculation (every input used)</h2><div class="tw"><table><tr><th>#</th><th>Date</th><th>Day</th><th>Day type</th><th>Class sheet</th><th>Level</th><th>Status</th><th>In</th><th>Out</th><th class="n">OT</th><th class="n">OT req.</th><th>OT ok?</th><th class="n">Students</th><th class="n">Present</th><th class="n">Attend. %</th><th class="n">Slab pay</th><th class="n">Rate ₹/hr</th><th>Calculation</th><th class="n">Amount</th><th>Remark</th></tr>
-  ${rows.map((r,i)=>`<tr class="${r.amt?'':'x'}"><td>${i+1}</td><td>${fd(r.d)}</td><td>${DN[wd(r.d)]}</td><td>${r.sun?'Sunday / WO':'Weekday'}</td><td>${esc(r.s.name.trim())}</td><td>${r.L||'?'}</td><td>${esc(r.rec?.st||'—')}</td><td>${esc(r.rec?.inT||'—')}</td><td>${esc(r.rec?.outT||'—')}</td><td class="n">${fm(r.ot)}</td><td class="n">${r.req!=null?fm(r.req):'—'}</td><td>${r.otOK?'✔':'✘'}</td><td class="n">${r.tot}</td><td class="n">${r.pres}</td><td class="n">${r.pct.toFixed(2)}%</td><td class="n">${r.pp}%</td><td class="n">${r.rate??'—'}</td><td>${r.rate!=null?`${r.rate} × ${C.hrs}h × ${r.otOK?r.pp:0}% = ${r.amt.toFixed(2)}`:'—'}</td><td class="n">${rs(r.amt)}</td><td>${esc(r.note)}</td></tr>`).join('')}
+  ${rows.map((r,i)=>`<tr class="${r.amt?'':'x'}"><td>${i+1}</td><td>${fd(r.d)}</td><td>${DN[wd(r.d)]}</td><td>${r.sun?'Sunday / WO':'Weekday'}</td><td>${esc(r.s.name.trim())}</td><td>${r.L||'?'}</td><td>${esc(r.rec?.st||'—')}</td><td>${esc(r.rec?.inT||'—')}</td><td>${esc(r.rec?.outT||'—')}</td><td class="n">${fm(r.ot)}</td><td class="n">${r.req!=null?fm(r.req):'—'}</td><td>${r.otOK?'✔':'✘'}</td><td class="n">${r.tot}</td><td class="n">${r.pres}</td><td class="n">${r.pct.toFixed(2)}%</td><td class="n">${r.pp}%</td><td class="n">${r.rate??'—'}</td><td>${r.rate!=null?`${r.rate} × ${C.hrs}h × ${r.otOK?r.pp:0}% = ${r.amt.toFixed(2)}`:'—'}</td><td class="n">${rs(r.amt)}</td><td>${esc(r.note)}${r.canMan?` <input class="mo" data-k="${r.key}" placeholder="manual OT h:mm" title="Enter OT (h:mm) to add it manually" value="${r.man!=null?fm(r.man):''}" style="width:112px;padding:2px 5px;font-size:12px;border:1px solid var(--bd);border-radius:5px;background:var(--bg);color:var(--tx)">`:''}</td></tr>`).join('')}
   <tr class="t"><td colspan="18">Total for ${esc(t.name)}</td><td class="n">${rs(tot)}</td><td></td></tr></table></div>`:'<p class="warn">No attendance entries found in the selected class sheets.</p>'}</div>`});
- h=`<div class="card"><div class="row" style="justify-content:space-between"><div><small class="st">Grand total (${res.filter(r=>!r.err).length} teacher(s))</small><div class="big">${rs(g)}</div></div><button class="sec" id="cp">Copy detailed table (paste into Excel)</button></div><div class="st">Rule: payment = rate × hours × slab %, only if the teacher's OT on that date ≥ required OT. Sunday / "WO" days use the Sunday rate.</div></div>`+h;
- $('#out').innerHTML=h;$('#out').scrollIntoView({behavior:'smooth'});
+ h=`<div class="card"><div class="row" style="justify-content:space-between"><div><small class="st">Grand total (${res.filter(r=>!r.err).length} teacher(s))</small><div class="big">${rs(g)}</div></div><button class="sec" id="cp">Copy detailed table (paste into Excel)</button></div><div class="st">Rule: payment = rate × hours × slab %, only if the teacher's OT on that date ≥ required OT. Only Sundays use the Sunday rate (Mon–Sat are the same).</div>${na?`<div class="st warn">${na} class-day(s) have no teacher-attendance data for their month, so they are unpaid for now. Upload that month's attendance file and recalculate.</div>`:''}</div>`+h;
+ $('#out').innerHTML=h;if(!ns)$('#out').scrollIntoView({behavior:'smooth'});
+ $('#out').querySelectorAll('.mo').forEach(i=>i.onchange=()=>{const m=pMin(i.value.trim());m==null?delete S.man[i.dataset.k]:S.man[i.dataset.k]=m;render(calcForm(),1)});
  $('#cp').onclick=()=>{const L=[['Teacher','Code','Date','Day','Day type','Class sheet','Level','Status','In','Out','OT','OT required','OT ok','Students','Present','Attend %','Slab pay %','Rate/hr','Amount','Remark']];
   res.forEach(R=>R.rows&&R.rows.forEach(r=>L.push([R.t.name,R.t.code,fd(r.d),DN[wd(r.d)],r.sun?'Sunday/WO':'Weekday',r.s.name.trim(),r.L||'',r.rec?.st||'',r.rec?.inT||'',r.rec?.outT||'',fm(r.ot),r.req!=null?fm(r.req):'',r.otOK?'Y':'N',r.tot,r.pres,r.pct.toFixed(2),r.pp,r.rate??'',r.amt.toFixed(2),r.note])));
   const tx=L.map(x=>x.join('\t')).join('\n');const fb=()=>{const a=document.createElement('textarea');a.value=tx;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove()};
   (navigator.clipboard?navigator.clipboard.writeText(tx).catch(fb):Promise.resolve(fb())).then(()=>$('#cp').textContent='Copied ✔')}}
+// form mode
+const FH={tn:/(name.*teacher|teacher.*name|^\W*\d*\W*name)/i,code:/code/i,date:/date/i,cls:/\bclass\b/i,sec:/(section|group)/i,subj:/subject/i,enr:/enrol/i,att:/attend/i};
+function detectForm(raw){for(const rows of Object.values(raw))for(let r=0;r<Math.min(rows.length,10);r++){const m={};(rows[r]||[]).forEach((v,i)=>{const t=String(v??'').trim();for(const k in FH)if(m[k]==null&&t&&FH[k].test(t)){m[k]=i;break}});
+ if(['date','cls','enr','att'].every(k=>m[k]!=null)&&(m.tn!=null||m.code!=null)){const F=[];
+  for(let i=r+1;i<rows.length;i++){const w=rows[i]||[],d=pDate(w[m.date]),enr=parseFloat(w[m.enr]),att=parseFloat(w[m.att]);if(!d||isNaN(enr)||isNaN(att))continue;
+   const cl=String(w[m.cls]??'').trim().toUpperCase(),o={i:i+1,tn:String(w[m.tn]??'').trim(),code:String(w[m.code]??'').trim(),d,cl,sec:String(w[m.sec]??'').trim(),subj:String(w[m.subj]??'').trim(),enr,att,lv:lvl(cl),fl:[]};
+   if(typeof w[m.date]==='string'&&!/^\d{4}-/.test(w[m.date]))o.fl.push(`date typed as "${w[m.date]}", read as ${fd(d)}`);F.push(o)}
+  return F.length?F:null}}return null}
+const NT=x=>String(x||'').toLowerCase().replace(/\b(ms|mrs|mr|dr|miss|smt|shri|prof)\b\.?/g,' ').replace(/[^a-z]+/g,' ').trim().split(' ').filter(Boolean);
+const ek=e=>e.code||e.name,tid=r=>{const g=S.G[r.gk];return g.emp?ek(g.emp):'x:'+r.gk},mk=d=>d.slice(0,7),ml=k=>MN[+k.slice(5)-1]+' '+k.slice(0,4),cord=c=>{const i=OR.indexOf(c);return i<0?99:i};
+function matchOne(name,code){const all=Object.values(S.T),nt=NT(name),nm=e=>NT(e.name),cs=String(code||'').replace(/\s+/g,'').toUpperCase(),dm=cs.match(/(\d+)$/),pre=cs.replace(/[\d-]+$/,'');
+ if(dm&&(pre===''||pre.startsWith('CMS'))){const n=parseInt(dm[1],10),c=all.filter(e=>/^CMS/i.test(e.code)&&parseInt((e.code.match(/(\d+)$/)||[])[1],10)===n);if(c.length===1)return{emp:c[0],how:nm(c[0]).some(w=>nt.includes(w))?'code':'code ⚠ name differs'}}
+ let c=all.filter(e=>{const a=nm(e);return a.length===nt.length&&nt.every(w=>a.includes(w))});if(c.length===1)return{emp:c[0],how:'name (code not found in attendance file)'};
+ c=all.filter(e=>{const a=nm(e);return nt.length&&nt.every(w=>a.includes(w))});if(c.length===1)return{emp:c[0],how:'name, partial ⚠ verify'};
+ c=all.filter(e=>nt.length&&nm(e)[0]===nt[0]);if(c.length===1)return{emp:c[0],how:'first name only ⚠ verify'};return{emp:null,how:'not found'}}
+function matchAll(){const G={};S.F.forEach(r=>{const gk=NT(r.tn).join(' ')+'|'+r.code.replace(/[\s-]/g,'').toUpperCase();r.gk=gk;if(!G[gk])G[gk]={name:r.tn,code:r.code,n:0,...matchOne(r.tn,r.code)};G[gk].n++});
+ for(const gk in S.ovT)if(G[gk]){const e=Object.values(S.T).find(x=>ek(x)===S.ovT[gk]);G[gk].emp=e||null;G[gk].how=e?'manual':'not found'}S.G=G}
+function passes(r,skip){const f=S.fl;return(skip==='m'||f.mon.has(mk(r.d)))&&(skip==='t'||f.te.has(tid(r)))&&(skip==='c'||f.cl.has(r.cl))}
+const LB=(id,ck,txt)=>`<label><input type="checkbox" data-v="${esc(id)}" ${ck?'checked':''}> ${txt}</label>`;
+function bind(el,set,after,inv){el.querySelectorAll('input').forEach(c=>c.onchange=()=>{const v=c.dataset.v;inv?(c.checked?set.delete(v):set.add(v)):(c.checked?set.add(v):set.delete(v));after&&after()})}
+const bulk=(sel,set,on,inv,after)=>{document.querySelectorAll(sel+' input').forEach(c=>{const v=c.dataset.v;(on!==!!inv)?set.add(v):set.delete(v)});after()};
+const tq=(t,q)=>{if(/\d/.test(q)&&/^[a-z]*[-\s_]?\d+$/i.test(q)){const n=q.replace(/\D/g,'').replace(/^0+/,''),L=/[a-z]/i.test(q),nq=q.toUpperCase().replace(/[^A-Z0-9]/g,'');return[...t.codes].some(c=>{const nc=c.toUpperCase().replace(/[^A-Z0-9]/g,'');return L?nc===nq:((c.match(/(\d+)\s*$/)||[,''])[1]).replace(/^0+/,'')===n})}
+ const ks=q.toLowerCase().split(/\s+/);return[...t.names].some(nm=>ks.every(k=>nm.toLowerCase().includes(k)))};
+function setMode(){$('#flc').style.display=S.F?'':'none';$('#blkc').style.display=S.F?'none':''}
+function afterData(){if(!S.F)return;matchAll();const f=S.fl;f.mon=new Set();f.dt=new Set();f.te=new Set();f.cl=new Set(S.F.map(r=>r.cl));drawMT();drawMon();drawCl();drawTe();drawDt()}
+function ents(){const m={};S.F.forEach(r=>{const id=tid(r),g=S.G[r.gk],t=m[id]=m[id]||{id,name:g.emp?g.emp.name:r.tn,code:g.emp?g.emp.code:r.code,um:!g.emp,n:0,names:new Set(),codes:new Set()};t.n++;t.names.add(r.tn);t.codes.add(r.code);if(g.emp){t.names.add(g.emp.name);t.codes.add(g.emp.code)}});return m}
+function drawMT(){const G=Object.entries(S.G).sort((a,b)=>a[1].name.localeCompare(b[1].name)),E=Object.values(S.T).sort((a,b)=>a.name.localeCompare(b.name));
+ $('#mt').innerHTML='<tr><th>Name in form</th><th>Code typed</th><th class="n">Entries</th><th>Matched to (attendance file)</th><th>How</th></tr>'+G.map(([gk,g])=>`<tr class="${g.emp?'':'x'}"><td>${esc(g.name)}</td><td>${esc(g.code)}</td><td class="n">${g.n}</td><td><select data-g="${esc(gk)}"><option value="">— not matched —</option>${E.map(e=>`<option value="${esc(ek(e))}" ${g.emp&&ek(g.emp)===ek(e)?'selected':''}>${esc(e.name)} · ${esc(e.code)}</option>`).join('')}</select></td><td class="${g.how.includes('⚠')||!g.emp?'warn':''}">${esc(g.how)}</td></tr>`).join('');
+ $('#mt').querySelectorAll('select').forEach(s=>s.onchange=()=>{S.ovT[s.dataset.g]=s.value;matchAll();const E=ents();[...S.fl.te].forEach(id=>{if(!E[id])S.fl.te.delete(id)});drawMT();drawTe();drawDt()})}
+function drawMon(){const f=S.fl,c={},has=new Set(Object.values(S.T).flatMap(t=>Object.keys(t.days).map(mk)));S.F.forEach(r=>c[mk(r.d)]=(c[mk(r.d)]||0)+1);
+ $('#fm').innerHTML=Object.keys(c).sort().map(k=>LB(k,f.mon.has(k),`${ml(k)} <span class="st">${c[k]} entries · ${has.has(k)?'<span class="ok">attendance loaded</span>':'<span class="warn">no teacher attendance loaded</span>'}</span>`)).join('');bind($('#fm'),f.mon,drawDt)}
+function drawCl(){const f=S.fl,c={};S.F.forEach(r=>c[r.cl]=(c[r.cl]||0)+1);
+ $('#fc').innerHTML=Object.keys(c).sort((a,b)=>cord(a)-cord(b)||a.localeCompare(b)).map(k=>LB(k,f.cl.has(k),`Class ${esc(k)} <span class="tag">${lvl(k)||'level?'}</span> <span class="st">${c[k]}</span>`)).join('');bind($('#fc'),f.cl,drawDt)}
+function drawTe(){const f=S.fl,E=ents(),q=$('#tq').value.trim();
+ $('#tch').innerHTML=[...f.te].filter(id=>E[id]).map(id=>`<span class="tag" style="font-size:12px;padding:3px 8px;margin:0 4px 4px 0;display:inline-block">${esc(E[id].name)} · ${esc(E[id].code)} <a href="#" data-x="${esc(id)}" style="text-decoration:none">✕</a></span>`).join('')||'<span class="st">No teacher selected yet.</span>';
+ document.querySelectorAll('#tch a').forEach(a=>a.onclick=ev=>{ev.preventDefault();f.te.delete(a.dataset.x);drawTe();drawDt()});
+ let L=Object.values(E).sort((a,b)=>a.name.localeCompare(b.name));if(q)L=L.filter(t=>tq(t,q));else if(!S.all)L=[];
+ $('#ft').innerHTML=L.map(t=>{const alt=[...t.codes].filter(c=>c&&c!==t.code).join(', ');return LB(t.id,f.te.has(t.id),`${esc(t.name)} <span class="st">${esc(t.code)}${alt?' (form: '+esc(alt)+')':''}${t.um?' · <span class="bad">not in attendance file</span>':''} · ${t.n} entries</span>`)}).join('')||`<span class="st">${q?'No teacher found for this name / code.':'Type a name or code above (attendance code or the code typed in the form), or click “List all teachers”.'}</span>`;
+ bind($('#ft'),f.te,()=>{drawTe();drawDt()})}
+function drawDt(){const f=S.fl,c={};S.F.filter(r=>passes(r)).forEach(r=>c[r.d]=(c[r.d]||0)+1);
+ $('#fdt').innerHTML=Object.keys(c).sort().map(d=>LB(d,f.dt.has(d),`${fd(d)} <span class="st">${DN[wd(d)]}${wd(d)===0?' (Sunday)':''} · ${c[d]}</span>`)).join('')||'<span class="st">Tick month(s) and teacher(s) to see their dates.</span>';bind($('#fdt'),f.dt,sumF);sumF()}
+function sumF(){const f=S.fl,n=S.F.filter(r=>passes(r)&&f.dt.has(r.d)).length;$('#fmsg').innerHTML=`<b>${n}</b> entr${n==1?'y':'ies'} selected for calculation.`+(n?'':' Tick at least one month, one teacher and the dates you need.')+(Object.keys(S.T).length?'':' <span class="warn">Upload the teachers\' attendance file(s) to check OT.</span>')}
+function calcForm(){const C=cfg(),f=S.fl,by={},dc={},need={},ks=r=>[tid(r),r.d,r.cl,NT(r.subj).join(''),r.enr,r.att].join('|');
+ S.F.forEach(r=>dc[ks(r)]=(dc[ks(r)]||0)+1);const mo=new Set(Object.values(S.T).flatMap(t=>Object.keys(t.days).map(mk)));
+ const rs_=S.F.filter(r=>passes(r)&&f.dt.has(r.d)).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);rs_.forEach(r=>{if(r.lv)need[tid(r)+r.d]=(need[tid(r)+r.d]||0)+C.req[r.lv]});
+ rs_.forEach(r=>{const g=S.G[r.gk],emp=g.emp,id=tid(r),L=r.lv,B=by[id]=by[id]||{t:emp||{name:r.tn,code:r.code,desig:"Not found in teachers' attendance"},rows:[],C};
+  const rec=emp?emp.days[r.d]:null,man=S.man[r.i],x={d:r.d,key:r.i,man,s:{name:`${r.cl} · ${r.sec} · ${r.subj}`,cls:r.cl,subj:r.subj},L,tot:r.enr,pres:r.att,rec};
+  x.pct=r.enr?r.att/r.enr*100:0;x.pp=x.pct>=C.t1?100:x.pct>=C.t2?80:0;x.sun=wd(r.d)===0;x.canMan=!rec||rec.ot==null;
+  const fl=[...r.fl];if(dc[ks(r)]>1)fl.push(`possible duplicate entry (×${dc[ks(r)]}), counted`);if(g.how.includes('⚠'))fl.push('teacher matched by '+g.how);if(rec&&/^wo$/i.test(rec.st)&&!x.sun)fl.push('marked WO but not a Sunday, weekday rate used');if(man!=null)fl.push('OT entered manually');
+  let note='';if(!L){x.amt=0;note='Class level unknown'}else{x.rate=C.rate[L][x.sun?1:0];x.req=C.cum?need[id+r.d]:C.req[L];x.ot=man!=null?man:rec?rec.ot:null;x.otOK=x.ot!=null&&x.ot>=x.req;x.amt=x.otOK?Math.round(x.rate*C.hrs*x.pp)/100:0;
+   note=x.ot==null?(!emp?"Teacher not found in teachers' attendance — unpaid (enter OT manually if approved)":!rec?(mo.has(mk(r.d))?'No attendance record for this date':'No attendance data for '+ml(mk(r.d))+" — upload that month's file"):'No OT recorded'):!x.otOK?`OT ${fm(x.ot)} is less than required ${fm(x.req)}`:x.pp===0?`Student attendance ${x.pct.toFixed(1)}% is below ${C.t2}%`:''}
+  x.note=[note,...fl].filter(Boolean).join('; ');B.rows.push(x)});
+ return Object.values(by).sort((a,b)=>a.t.name.localeCompare(b.t.name))}
 // events
-$('#fT').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#sT').textContent='Reading…';try{S.tRaw=await readAny(f);detectHdr();if(!S.hdr){$('#sT').innerHTML='<span class="bad">Could not find a header row (need date, employee code, name, OT…).</span>';return}buildT();buildS()}catch(x){$('#sT').innerHTML='<span class="bad">Could not read file: '+esc(x.message)+'</span>'}};
-$('#fS').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#sS').textContent='Reading…';try{S.sRaw=await readAny(f);buildS()}catch(x){$('#sS').innerHTML='<span class="bad">Could not read file: '+esc(x.message)+'</span>'}};
+$('#fT').onchange=async e=>{const fs=[...e.target.files];if(!fs.length)return;$('#sT').textContent='Reading…';S.tF=[];const bad=[];
+ try{for(const f of fs){const raw=await readAny(f),hdr=hdrOf(raw);hdr?S.tF.push({name:f.name,raw,hdr}):bad.push(f.name)}
+  if(!S.tF.length){$('#sT').innerHTML='<span class="bad">Could not find a header row (need date, employee code, name, OT…).</span>';return}
+  showMap();buildT();buildS();if(bad.length)$('#sT').innerHTML+=`<br><span class="warn">Skipped (no header found): ${esc(bad.join(', '))}</span>`}catch(x){$('#sT').innerHTML='<span class="bad">Could not read file: '+esc(x.message)+'</span>'}};
+$('#fS').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#sS').textContent='Reading…';try{S.sRaw=await readAny(f);S.F=detectForm(S.sRaw);setMode();
+ if(S.F){const ds=S.F.map(r=>r.d).sort();$('#sS').innerHTML=`<span class="ok">✔ Remedial-class form: ${S.F.length} entries · ${fd(ds[0])} to ${fd(ds[ds.length-1])}</span>`;afterData()}else buildS()}catch(x){$('#sS').innerHTML='<span class="bad">Could not read file: '+esc(x.message)+'</span>'}};
 $('#mon').onchange=buildS;$('#add').onclick=addBlock;
 $('#go').onclick=()=>{if(!S.blocks.length)return;if(!Object.keys(S.T).length||!S.sheets.length){$('#out').innerHTML='<div class="card bad">Please upload both files first.</div>';return}render(calc())};
+$('#go2').onclick=()=>{if(!S.F)return;if(!Object.keys(S.T).length){$('#out').innerHTML='<div class="card bad">Please upload the teachers\' attendance file(s) first.</div>';return}const R=calcForm();if(!R.length){$('#out').innerHTML='<div class="card warn">Nothing selected — tick at least one month, one teacher and the dates you need (step 2).</div>';return}render(R)};
+$('#tq').oninput=drawTe;
+$('#ca').onclick=()=>bulk('#fc',S.fl.cl,1,0,()=>{drawCl();drawDt()});$('#cn').onclick=()=>bulk('#fc',S.fl.cl,0,0,()=>{drawCl();drawDt()});
+$('#tl').onclick=()=>{S.all=!S.all;$('#tl').textContent=S.all?'Hide full list':'List all teachers';drawTe()};$('#tn').onclick=()=>{S.fl.te.clear();drawTe();drawDt()};
+$('#da2').onclick=()=>bulk('#fdt',S.fl.dt,1,0,drawDt);$('#dn2').onclick=()=>bulk('#fdt',S.fl.dt,0,0,drawDt);
 addBlock();
 </script></body></html>
